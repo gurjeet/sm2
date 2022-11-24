@@ -1,8 +1,6 @@
 const std = @import("std");
 const eql = std.mem.eql;
 
-const delimiter: u8 = '"';
-
 const Skip = struct {
     fn whitespace(file: std.fs.File) !void {
         var buf: [1]u8 = [_]u8{0};
@@ -33,7 +31,7 @@ const String = struct {
 
         while (i < 80) {
             _ = try file.read(&bytebuf);
-            if (bytebuf[0] == '\n' or bytebuf[0] == '\r' or bytebuf[0] == stopAt) break;
+            if (bytebuf[0] == stopAt) break;
             buf[i] = bytebuf[0];
             i += 1;
         }
@@ -120,7 +118,7 @@ const MemoryUnit = struct {
         };
     }
 
-    fn next(self: *@This(), q: ResponseQuality.Type) @This() {
+    fn next(self: @This(), q: ResponseQuality.Type) @This() {
         const has_forgotten = q < std.math.round(ResponseQuality.max / 2.0);
         return MemoryUnit{
             .repetition = if (has_forgotten) 0 else self.repetition + 1,
@@ -132,7 +130,7 @@ const MemoryUnit = struct {
         };
     }
 
-    fn nextInterval(self: *@This()) f64 {
+    fn nextInterval(self: @This()) f64 {
         return switch (self.repetition) {
             0 => 0.0,
             1 => 1.0,
@@ -141,24 +139,23 @@ const MemoryUnit = struct {
         };
     }
 
-    fn staleness(self: *@This()) f64 {
+    fn staleness(self: @This()) f64 {
         const days_diff = @intToFloat(f64, std.time.timestamp() - self.last_practice) / 60.0 / 60.0 / 24.0;
         return self.nextInterval() - days_diff;
     }
 
-    fn read(file: std.fs.File, allocator: std.mem.Allocator) !*@This(){
+    fn read(file: std.fs.File, allocator: std.mem.Allocator) !@This() {
         const offset = try file.getPos();
         const last_practice = try Number.read(i64, file);
         const ef = try Number.read(f64, file);
         const repetition = try Number.read(u64, file);
         try Skip.until(file, '"');
-        const question = try String.read(file, allocator, delimiter);
+        const question = try String.read(file, allocator, '"');
         try Skip.until(file, '"');
-        const answer = try String.read(file, allocator, delimiter);
+        const answer = try String.read(file, allocator, '"');
         try Skip.whitespace(file);
 
-        var memory_unit: *MemoryUnit = try allocator.create(MemoryUnit);
-        memory_unit.* = MemoryUnit{
+        return @This(){
             .repetition = repetition,
             .ef = ef,
             .question = question,
@@ -166,7 +163,6 @@ const MemoryUnit = struct {
             .last_practice = last_practice,
             .offset = offset,
         };
-        return memory_unit;
     }
 };
 
@@ -181,36 +177,29 @@ const PracticeSession = struct {
         };
     }
 
-    fn nextMemoryUnit(self: @This()) !*MemoryUnit {
+    fn nextMemoryUnit(self: @This()) !MemoryUnit {
         var gpa = std.heap.GeneralPurposeAllocator(.{}){};
         const allocator = gpa.allocator();
 
         try self.file.seekTo(0);
 
-        var mu_soonest: *MemoryUnit = try allocator.create(MemoryUnit);
-        mu_soonest.* = MemoryUnit.new("ok", "no");
-        mu_soonest.last_practice = 4294967295;
-
+        var mu_soonest: MemoryUnit = MemoryUnit.new("", "");
+        mu_soonest.last_practice = 2^64 / 2;
 
         while (MemoryUnit.read(self.file, allocator) catch null) |mu_next| {
-            std.debug.print("{0any} {1any}\n", .{ mu_next.staleness(), mu_soonest.staleness() });
-            if (mu_next.staleness() < mu_soonest.staleness()) {
-              std.debug.print("a\n", .{ });
-              mu_soonest.* = mu_next.*;
-            }
+            if (mu_next.staleness() < mu_soonest.staleness()) mu_soonest = mu_next;
         }
-
 
         return mu_soonest;
     }
 
-    fn respond(self: @This(), memory_unit: *MemoryUnit, r: ResponseQuality.Type) !void {
+    fn respond(self: @This(), memory_unit: MemoryUnit, r: ResponseQuality.Type) !void {
         const next = memory_unit.next(r);
         if (memory_unit.offset) |offset| try self.file.seekTo(offset);
         try std.fmt.formatInt(std.time.timestamp(), 10, std.fmt.Case.upper, .{}, self.file.writer());
-        try self.file.seekBy(1); // " "
+        try self.file.seekBy(1); // " " calculate via comptime?
         try std.fmt.formatFloatDecimal(next.ef, .{ .precision = 2 }, self.file.writer());
-        try self.file.seekBy(1); // " "
+        try self.file.seekBy(1); // " " calculate via comptime?
         try std.fmt.formatInt(next.repetition, 10, std.fmt.Case.upper, .{ .width = 2, .fill = '0' }, self.file.writer());
     }
 };
@@ -229,7 +218,7 @@ pub fn main() !void {
     if (arg1) |file_path| {
         practice_session = try PracticeSession.fromFile(file_path);
     } else {
-        try stdout.writer().print("Usage: sr <filename> [-a|-n|-r]\n", .{});
+        try stdout.writer().print("Usage: sr <filename> [-a|-f|-n|-r]\n", .{});
         return;
     }
 
@@ -237,23 +226,20 @@ pub fn main() !void {
 
     const arg2 = args.next();
     if (arg2) |flag| {
-        if (memory_unit.staleness() >= 0.0) {
-            if (eql(u8, flag, "-r")) {
-                if (args.next()) |response_str| {
-                    const response = try std.fmt.parseFloat(f64, response_str);
-                    try practice_session.respond(memory_unit, ResponseQuality.from(response));
-                }
-            }
-            if (eql(u8, flag, "-a")) {
-                try stdout.writer().print("{0s}\n", .{memory_unit.answer});
+        if (eql(u8, flag, "-r")) {
+            if (args.next()) |response_str| {
+                const response = try std.fmt.parseFloat(f64, response_str);
+                try practice_session.respond(memory_unit, ResponseQuality.from(response));
             }
         }
-        if (eql(u8, flag, "-n")) {
+        if (eql(u8, flag, "-a"))
+            try stdout.writer().print("{0s}\n", .{memory_unit.answer});
+        if (eql(u8, flag, "-n"))
             try stdout.writer().print("{0d}\n", .{memory_unit.staleness()});
-        }
-    } else {
-        if (memory_unit.staleness() <= 0) {
+        if (eql(u8, flag, "-f"))
             try stdout.writer().print("{0s}\n", .{memory_unit.question});
-        }
+    } else {
+        if (memory_unit.staleness() <= 0)
+            try stdout.writer().print("{0s}\n", .{memory_unit.question});
     }
 }
