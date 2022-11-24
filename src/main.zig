@@ -1,5 +1,12 @@
 const std = @import("std");
-const eql = std.mem.eql;
+const heap = std.heap;
+const math = std.math;
+const mem = std.mem;
+const fs = std.fs;
+const fmt = std.fmt;
+const time = std.time;
+const io = std.io;
+const process = std.process;
 
 const Test = struct {
     inline fn isWhitespace(byte: u8) bool {
@@ -10,13 +17,13 @@ const Test = struct {
         return byte == '"';
     }
 
-    inline fn isNumber(byte: u8) bool {
+    inline fn isNotNumber(byte: u8) bool {
         return (byte < '0' or byte > '9') and byte != '.' and byte != 'e';
     }
 };
 
 const File = struct {
-    fn skipUntil(comptime stopAtFn: fn (u8) callconv(.Inline) bool, file: std.fs.File) !void {
+    fn skipUntil(comptime stopAtFn: fn (u8) callconv(.Inline) bool, file: fs.File) !void {
         var byte: [1]u8 = .{0};
         while (true) {
             _ = try file.read(&byte);
@@ -24,7 +31,7 @@ const File = struct {
         }
     }
 
-    fn readUntil(comptime stopAtFn: fn (u8) callconv(.Inline) bool, file: std.fs.File, buf: []u8) !usize {
+    fn readUntil(comptime stopAtFn: fn (u8) callconv(.Inline) bool, file: fs.File, buf: []u8) !usize {
         var byte: [1]u8 = .{0};
         var i: usize = 0;
 
@@ -39,15 +46,15 @@ const File = struct {
 };
 
 const Number = struct {
-    fn read(comptime T: type, file: std.fs.File) !T {
-        var buf: [20]u8 = .{0};
+    fn read(comptime T: type, file: fs.File) !T {
+        var buf: [20]u8 = undefined;
 
-        const bytes_read = try File.readUntil(Test.isNumber, file, &buf);
+        const bytes_read = try File.readUntil(Test.isNotNumber, file, &buf);
 
         if (T == f64) {
-            return try std.fmt.parseFloat(f64, buf[0..bytes_read]);
+            return try fmt.parseFloat(f64, buf[0..bytes_read]);
         }
-        return try std.fmt.parseInt(T, buf[0..bytes_read], 10);
+        return try fmt.parseInt(T, buf[0..bytes_read], 10);
     }
 };
 
@@ -65,7 +72,7 @@ const ResponseQuality = struct {
     const Type = f64;
 
     fn from(r: Type) Type {
-        return std.math.max(std.math.min(max, r), min);
+        return math.max(math.min(max, r), min);
     }
 };
 
@@ -76,7 +83,7 @@ const EFactor = struct {
 
     fn next(ef: Type, q: ResponseQuality.Type) Type {
         const delta = ResponseQuality.max - q;
-        return std.math.max(ef + (0.1 - delta * (0.08 + delta * 0.02)), minimum);
+        return math.max(ef + (0.1 - delta * (0.08 + delta * 0.02)), minimum);
     }
 };
 
@@ -109,7 +116,7 @@ const MemoryUnit = struct {
     }
 
     fn next(self: @This(), q: ResponseQuality.Type) @This() {
-        const has_forgotten = q < std.math.round(ResponseQuality.max / 2.0);
+        const has_forgotten = q < math.round(ResponseQuality.max / 2.0);
         return MemoryUnit{
             .repetition = if (has_forgotten) 0 else self.repetition + 1,
             .ef = EFactor.next(self.ef, q),
@@ -125,16 +132,16 @@ const MemoryUnit = struct {
             0 => 0.0,
             1 => 1.0,
             2 => 6.0,
-            else => 6 * std.math.pow(f64, self.ef, @intToFloat(f64, self.repetition) - 1),
+            else => 6 * math.pow(f64, self.ef, @intToFloat(f64, self.repetition) - 1),
         };
     }
 
     fn staleness(self: @This()) f64 {
-        const delta = @intToFloat(f64, std.time.timestamp() - self.last_practice) / 60.0 / 60.0 / 24.0;
+        const delta = @intToFloat(f64, time.timestamp() - self.last_practice) / 60.0 / 60.0 / 24.0;
         return self.nextInterval() - delta;
     }
 
-    fn read(file: std.fs.File, allocator: std.mem.Allocator) !@This() {
+    fn read(file: fs.File, allocator: mem.Allocator) !@This() {
         const offset = try file.getPos();
         const last_practice = try Number.read(i64, file);
         const ef = try Number.read(f64, file);
@@ -142,11 +149,11 @@ const MemoryUnit = struct {
         try File.skipUntil(Test.isQuote, file);
 
         var question = try allocator.alloc(u8, 80);
-        try File.readUntil(Test.isQuote, file, question);
+        _ = try File.readUntil(Test.isQuote, file, question);
         try File.skipUntil(Test.isQuote, file);
 
         var answer = try allocator.alloc(u8, 80);
-        try File.readUntil(Test.isQuote, file, answer);
+        _ = try File.readUntil(Test.isQuote, file, answer);
         try File.skipUntil(Test.isWhitespace, file);
 
         return @This(){
@@ -161,10 +168,10 @@ const MemoryUnit = struct {
 };
 
 const PracticeSession = struct {
-    file: std.fs.File,
+    file: fs.File,
 
     fn fromFile(file_path: []const u8) !PracticeSession {
-        const file = try std.fs.cwd().openFile(file_path, .{ .mode = std.fs.File.OpenMode.read_write });
+        const file = try fs.cwd().openFile(file_path, .{ .mode = fs.File.OpenMode.read_write });
 
         return PracticeSession{
             .file = file,
@@ -172,7 +179,7 @@ const PracticeSession = struct {
     }
 
     fn nextMemoryUnit(self: @This()) !MemoryUnit {
-        var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+        var gpa = heap.GeneralPurposeAllocator(.{}){};
         const allocator = gpa.allocator();
 
         try self.file.seekTo(0);
@@ -190,20 +197,20 @@ const PracticeSession = struct {
     fn respond(self: @This(), memory_unit: MemoryUnit, r: ResponseQuality.Type) !void {
         const next = memory_unit.next(r);
         if (memory_unit.offset) |offset| try self.file.seekTo(offset);
-        try std.fmt.formatInt(std.time.timestamp(), 10, std.fmt.Case.upper, .{}, self.file.writer());
+        try fmt.formatInt(time.timestamp(), 10, fmt.Case.upper, .{}, self.file.writer());
         try self.file.seekBy(1); // " " calculate via comptime?
-        try std.fmt.formatFloatDecimal(next.ef, .{ .precision = 2 }, self.file.writer());
+        try fmt.formatFloatDecimal(next.ef, .{ .precision = 2 }, self.file.writer());
         try self.file.seekBy(1); // " " calculate via comptime?
-        try std.fmt.formatInt(next.repetition, 10, std.fmt.Case.upper, .{ .width = 2, .fill = '0' }, self.file.writer());
+        try fmt.formatInt(next.repetition, 10, fmt.Case.upper, .{ .width = 2, .fill = '0' }, self.file.writer());
     }
 };
 
 pub fn main() !void {
-    const stdout = std.io.getStdOut();
+    const stdout = io.getStdOut();
 
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa = heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
-    var args = try std.process.argsWithAllocator(allocator);
+    var args = try process.argsWithAllocator(allocator);
     _ = args.next();
     const arg1 = args.next();
 
@@ -220,17 +227,17 @@ pub fn main() !void {
 
     const arg2 = args.next();
     if (arg2) |flag| {
-        if (eql(u8, flag, "-r")) {
+        if (mem.eql(u8, flag, "-r")) {
             if (args.next()) |response_str| {
-                const response = try std.fmt.parseFloat(f64, response_str);
+                const response = try fmt.parseFloat(f64, response_str);
                 try practice_session.respond(memory_unit, ResponseQuality.from(response));
             }
         }
-        if (eql(u8, flag, "-a"))
+        if (mem.eql(u8, flag, "-a"))
             try stdout.writer().print("{0s}\n", .{memory_unit.answer});
-        if (eql(u8, flag, "-n"))
+        if (mem.eql(u8, flag, "-n"))
             try stdout.writer().print("{0d}\n", .{memory_unit.staleness()});
-        if (eql(u8, flag, "-f"))
+        if (mem.eql(u8, flag, "-f"))
             try stdout.writer().print("{0s}\n", .{memory_unit.question});
     } else {
         if (memory_unit.staleness() <= 0)
