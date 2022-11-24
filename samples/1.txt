@@ -1,0 +1,3 @@
+16691034050 2.50 01 "init project" "zig init-exe"
+16691034050 2.50 01 "import file" "const i = @import("path");"
+16691034050 1.16 01 "function decl" "fn hello(a: type) returntype { ... }"
