@@ -1,63 +1,53 @@
 const std = @import("std");
 const eql = std.mem.eql;
 
-const Skip = struct {
-    fn whitespace(file: std.fs.File) !void {
-        var buf: [1]u8 = [_]u8{0};
-        while (true) {
-            _ = try file.read(&buf);
-            if (isWhitespace(buf[0])) break;
-        }
-    }
-
-    fn until(file: std.fs.File, stopAt: u8) !void {
-        var buf: [1]u8 = [_]u8{0};
-        while (true) {
-            _ = try file.read(&buf);
-            if (buf[0] == stopAt) break;
-        }
-    }
-
-    fn isWhitespace(byte: u8) bool {
+const Test = struct {
+    inline fn isWhitespace(byte: u8) bool {
         return byte == '\n' or byte == '\r' or byte == ' ';
+    }
+
+    inline fn isQuote(byte: u8) bool {
+        return byte == '"';
+    }
+
+    inline fn isNumber(byte: u8) bool {
+        return (byte < '0' or byte > '9') and byte != '.' and byte != 'e';
     }
 };
 
-const String = struct {
-    fn read(file: std.fs.File, allocator: std.mem.Allocator, stopAt: u8) ![]u8 {
-        var buf: []u8 = try allocator.alloc(u8, 81);
-        var bytebuf = [_]u8{0};
+const File = struct {
+    fn skipUntil(comptime stopAtFn: fn (u8) callconv(.Inline) bool, file: std.fs.File) !void {
+        var byte: [1]u8 = .{0};
+        while (true) {
+            _ = try file.read(&byte);
+            if (stopAtFn(byte[0])) break;
+        }
+    }
+
+    fn readUntil(comptime stopAtFn: fn (u8) callconv(.Inline) bool, file: std.fs.File, buf: []u8) !usize {
+        var byte: [1]u8 = .{0};
         var i: usize = 0;
 
-        while (i < 80) {
-            _ = try file.read(&bytebuf);
-            if (bytebuf[0] == stopAt) break;
-            buf[i] = bytebuf[0];
-            i += 1;
+        while (true) : (i += 1) {
+            _ = try file.read(&byte);
+            if (stopAtFn(byte[0])) break;
+            buf[i] = byte[0];
         }
-        buf[i] = 0;
-        return buf;
+
+        return i;
     }
 };
 
 const Number = struct {
     fn read(comptime T: type, file: std.fs.File) !T {
-        // Allocate space for 20 digits which holds 64 bit numbers.
-        var buf = [_]u8{0} ** 20;
-        var bytebuf = [_]u8{0};
-        var i: usize = 0;
+        var buf: [20]u8 = .{0};
 
-        while (true) {
-            _ = try file.read(&bytebuf);
-            if ((bytebuf[0] < '0' or bytebuf[0] > '9') and bytebuf[0] != '.' and bytebuf[0] != 'e') break;
-            buf[i] = bytebuf[0];
-            i += 1;
-        }
+        const bytes_read = try File.readUntil(Test.isNumber, file, &buf);
 
         if (T == f64) {
-            return try std.fmt.parseFloat(f64, buf[0..i]);
+            return try std.fmt.parseFloat(f64, buf[0..bytes_read]);
         }
-        return try std.fmt.parseInt(T, buf[0..i], 10);
+        return try std.fmt.parseInt(T, buf[0..bytes_read], 10);
     }
 };
 
@@ -140,8 +130,8 @@ const MemoryUnit = struct {
     }
 
     fn staleness(self: @This()) f64 {
-        const days_diff = @intToFloat(f64, std.time.timestamp() - self.last_practice) / 60.0 / 60.0 / 24.0;
-        return self.nextInterval() - days_diff;
+        const delta = @intToFloat(f64, std.time.timestamp() - self.last_practice) / 60.0 / 60.0 / 24.0;
+        return self.nextInterval() - delta;
     }
 
     fn read(file: std.fs.File, allocator: std.mem.Allocator) !@This() {
@@ -149,11 +139,15 @@ const MemoryUnit = struct {
         const last_practice = try Number.read(i64, file);
         const ef = try Number.read(f64, file);
         const repetition = try Number.read(u64, file);
-        try Skip.until(file, '"');
-        const question = try String.read(file, allocator, '"');
-        try Skip.until(file, '"');
-        const answer = try String.read(file, allocator, '"');
-        try Skip.whitespace(file);
+        try File.skipUntil(Test.isQuote, file);
+
+        var question = try allocator.alloc(u8, 80);
+        try File.readUntil(Test.isQuote, file, question);
+        try File.skipUntil(Test.isQuote, file);
+
+        var answer = try allocator.alloc(u8, 80);
+        try File.readUntil(Test.isQuote, file, answer);
+        try File.skipUntil(Test.isWhitespace, file);
 
         return @This(){
             .repetition = repetition,
@@ -184,7 +178,7 @@ const PracticeSession = struct {
         try self.file.seekTo(0);
 
         var mu_soonest: MemoryUnit = MemoryUnit.new("", "");
-        mu_soonest.last_practice = 2^64 / 2;
+        mu_soonest.last_practice = 9223372036854775807;
 
         while (MemoryUnit.read(self.file, allocator) catch null) |mu_next| {
             if (mu_next.staleness() < mu_soonest.staleness()) mu_soonest = mu_next;
