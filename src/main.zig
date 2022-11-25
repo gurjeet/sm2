@@ -165,6 +165,21 @@ const MemoryUnit = struct {
             .offset = offset,
         };
     }
+
+    fn write(self: @This(), file: fs.File, onlyUpdateMeta: bool) !void {
+        if (self.offset) |offset| try file.seekTo(offset);
+        try fmt.formatInt(time.timestamp(), 10, fmt.Case.upper, .{}, file.writer());
+        try file.seekBy(1); // " " calculate via comptime?
+        try fmt.formatFloatDecimal(self.ef, .{ .precision = 2 }, file.writer());
+        try file.seekBy(1); // " " calculate via comptime?
+        try fmt.formatInt(self.repetition, 10, fmt.Case.upper, .{ .width = 2, .fill = '0' }, file.writer());
+
+        if (onlyUpdateMeta) return;
+
+        try file.seekBy(1); // " " calculate via comptime?
+        try file.writer().print("\"{0s}\" \"{1s}\"", .{ self.question, self.answer });
+    }
+
 };
 
 const PracticeSession = struct {
@@ -178,10 +193,7 @@ const PracticeSession = struct {
         };
     }
 
-    fn nextMemoryUnit(self: @This()) !MemoryUnit {
-        var gpa = heap.GeneralPurposeAllocator(.{}){};
-        const allocator = gpa.allocator();
-
+    fn nextMemoryUnit(self: @This(), allocator: mem.Allocator) !MemoryUnit {
         try self.file.seekTo(0);
 
         var mu_soonest: MemoryUnit = MemoryUnit.new("", "");
@@ -194,22 +206,24 @@ const PracticeSession = struct {
         return mu_soonest;
     }
 
+    fn newMemoryUnit(self: @This(), question: []u8, answer: []u8) !void {
+        try self.file.seekFromEnd(0);
+        try self.file.writer().print("\n", .{});
+        try MemoryUnit.new(question, answer).write(self.file, true);
+    }
+
     fn respond(self: @This(), memory_unit: MemoryUnit, r: ResponseQuality.Type) !void {
-        const next = memory_unit.next(r);
-        if (memory_unit.offset) |offset| try self.file.seekTo(offset);
-        try fmt.formatInt(time.timestamp(), 10, fmt.Case.upper, .{}, self.file.writer());
-        try self.file.seekBy(1); // " " calculate via comptime?
-        try fmt.formatFloatDecimal(next.ef, .{ .precision = 2 }, self.file.writer());
-        try self.file.seekBy(1); // " " calculate via comptime?
-        try fmt.formatInt(next.repetition, 10, fmt.Case.upper, .{ .width = 2, .fill = '0' }, self.file.writer());
+        try memory_unit.next(r).write(self.file, true);
     }
 };
 
 pub fn main() !void {
     const stdout = io.getStdOut();
 
-    var gpa = heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
+    var bufferFba: [1024]u8 = undefined;
+    var fba = heap.FixedBufferAllocator.init(&bufferFba);
+    const allocator = fba.allocator();
+
     var args = try process.argsWithAllocator(allocator);
     _ = args.next();
     const arg1 = args.next();
@@ -219,25 +233,36 @@ pub fn main() !void {
     if (arg1) |file_path| {
         practice_session = try PracticeSession.fromFile(file_path);
     } else {
-        try stdout.writer().print("Usage: sr <filename> [-a|-f|-n|-r]\n", .{});
+        try stdout.writer().print("Usage: sr <filename> [show|grade|until|next|new]\n", .{});
         return;
     }
 
-    const memory_unit = try practice_session.nextMemoryUnit();
+    const memory_unit = try practice_session.nextMemoryUnit(allocator);
 
     const arg2 = args.next();
     if (arg2) |flag| {
-        if (mem.eql(u8, flag, "-r")) {
-            if (args.next()) |response_str| {
-                const response = try fmt.parseFloat(f64, response_str);
-                try practice_session.respond(memory_unit, ResponseQuality.from(response));
+        if (mem.eql(u8, flag, "grade")) {
+            if (args.next()) |grade_str| {
+                const grade = try fmt.parseFloat(f64, grade_str);
+                try practice_session.respond(memory_unit, ResponseQuality.from(grade));
             }
         }
-        if (mem.eql(u8, flag, "-a"))
+        if (mem.eql(u8, flag, "new")) {
+            const question = args.next();
+            const answer = args.next();
+            if (question == null or answer == null) {
+              try stdout.writer().print("Missing question or answer: sr add \"<question>\" \"<answer>\"\n", .{});
+            } else {
+              const q: []u8 = mem.span(question.?);
+              const a: []u8 = mem.span(answer.?);
+              try practice_session.newMemoryUnit(q, a);
+            }
+        }
+        if (mem.eql(u8, flag, "show"))
             try stdout.writer().print("{0s}\n", .{memory_unit.answer});
-        if (mem.eql(u8, flag, "-n"))
+        if (mem.eql(u8, flag, "until"))
             try stdout.writer().print("{0d}\n", .{memory_unit.staleness()});
-        if (mem.eql(u8, flag, "-f"))
+        if (mem.eql(u8, flag, "next"))
             try stdout.writer().print("{0s}\n", .{memory_unit.question});
     } else {
         if (memory_unit.staleness() <= 0)
