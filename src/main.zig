@@ -169,15 +169,16 @@ const MemoryUnit = struct {
     fn write(self: @This(), file: fs.File, onlyUpdateMeta: bool) !void {
         if (self.offset) |offset| try file.seekTo(offset);
         try fmt.formatInt(time.timestamp(), 10, fmt.Case.upper, .{}, file.writer());
-        try file.seekBy(1); // " " calculate via comptime?
+        try file.writer().print(" ", .{});
         try fmt.formatFloatDecimal(self.ef, .{ .precision = 2 }, file.writer());
-        try file.seekBy(1); // " " calculate via comptime?
+        try file.writer().print(" ", .{});
         try fmt.formatInt(self.repetition, 10, fmt.Case.upper, .{ .width = 2, .fill = '0' }, file.writer());
+        try file.writer().print(" ", .{});
 
         if (onlyUpdateMeta) return;
 
-        try file.seekBy(1); // " " calculate via comptime?
-        try file.writer().print("\"{0s}\" \"{1s}\"", .{ self.question, self.answer });
+        try file.writer().print(" ", .{});
+        try file.writer().print("\"{0s}\" \"{1s}\"\n", .{ self.question, self.answer });
     }
 
 };
@@ -206,10 +207,9 @@ const PracticeSession = struct {
         return mu_soonest;
     }
 
-    fn newMemoryUnit(self: @This(), question: []u8, answer: []u8) !void {
+    fn newMemoryUnit(self: @This(), question: []const u8, answer: []const u8) !void {
         try self.file.seekFromEnd(0);
-        try self.file.writer().print("\n", .{});
-        try MemoryUnit.new(question, answer).write(self.file, true);
+        try MemoryUnit.new(question, answer).write(self.file, false);
     }
 
     fn respond(self: @This(), memory_unit: MemoryUnit, r: ResponseQuality.Type) !void {
@@ -253,8 +253,8 @@ pub fn main() !void {
             if (question == null or answer == null) {
               try stdout.writer().print("Missing question or answer: sr add \"<question>\" \"<answer>\"\n", .{});
             } else {
-              const q: []u8 = mem.span(question.?);
-              const a: []u8 = mem.span(answer.?);
+              const q: []const u8 = mem.span(question.?);
+              const a: []const u8 = mem.span(answer.?);
               try practice_session.newMemoryUnit(q, a);
             }
         }

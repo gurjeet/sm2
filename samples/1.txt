@@ -1,3 +1,4 @@
 1669267000 2.08 04 "zig init project" "init-exe"
 1669262268 2.22 03 "import file" "const i = @import("path");"
 1669262442 1.30 08 "function decl" "fn hello(a: type) returntype { ... }"
+1669356079 2.50 00  "okie dokie" "yesssser weeeee"
