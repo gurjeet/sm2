@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="stylesheet" href="style.css" type="text/css" media="all"/>
+  <title>sm2(1)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">sm2(1)</td>
+    <td class="head-vol">General Commands Manual</td>
+    <td class="head-rtitle">sm2(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">sm2</code> &#x2014; <span class="Nd">Invoke the
+    SuperMemo2 spaced-repetition algorithm.</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">sm2</code></td>
+    <td><var class="Ar">file</var> [<var class="Ar">new &lt;question&gt;
+      &lt;answer&gt;</var> | <var class="Ar">show</var> | <var class="Ar">grade
+      &lt;0.0-5.0&gt;</var> | <var class="Ar">until</var> |
+      <var class="Ar">next</var>]</td>
+  </tr>
+</table>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">From a file holding memories, search for the one that is the most
+    stale and display its question.</p>
+<p class="Pp" id="show">Display the memory's answer with the
+    <a class="permalink" href="#show"><i class="Em">show</i></a> command.</p>
+<p class="Pp" id="grade">Score the recall of the memory with
+    <a class="permalink" href="#grade"><i class="Em">grade</i></a> , from 0.0
+    being the worst, to 5.0 being very well.</p>
+<p class="Pp">If there are no memories that are considered stale, nothing is
+    displayed.</p>
+<p class="Pp" id="until">To see when the next one will become stale,
+    <a class="permalink" href="#until"><i class="Em">until</i></a> will display
+    the time in days.</p>
+<p class="Pp" id="next">In order to immediately force a practice, use
+    <a class="permalink" href="#next"><i class="Em">next</i></a> and then grade
+    as usual.</p>
+<p class="Pp">It's suggested to create a &quot;~/sr&quot; directory to hold a
+    collection of topics. A topic's file should be named
+    &quot;&lt;topic&gt;.sr.txt&quot;. The &quot;txt&quot; extension is
+    recommended so it's easy to open the file with a text editor to adjust or
+    delete memories.</p>
+<p class="Pp" id="new">When adding a memory, try to make them as small as
+    possible. For example when learning a word in a new language such as French,
+    write the word in French as the question argument, and the word in your
+    native language for the answer argument: <code class="Nm">sm2</code>
+    <a class="permalink" href="#new"><i class="Em">new</i></a>
+    &quot;bonjour&quot; &quot;hello&quot;.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<p class="Pp">Names of <code class="Nm">sm2</code> files should be
+    &quot;&lt;name&gt;.sm2.txt&quot; so that the operating system can open them
+    by default.</p>
+<p class="Pp"></p>
+<p class="Pp">The file format is the following:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>timestamp-practiced repetitions-two-digits question answer\n</pre>
+</div>
+<p class="Pp">for every new memory. All fields are plain text.</p>
+<p class="Pp">The format was designed to be efficient for the program to edit,
+    and modifiable and understandable by a person in a text editor.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<div class="Bd Bd-indent Li">
+<pre># Typical usage of sm2
+
+mkdir ~/sr/
+touch ~/sr/french.sm2.txt
+sm2 ~/sr/french.sm2.txt new bonjour hello
+sm2 ~/sr/french.sm2.txt new &quot;au revoir&quot; goodbye
+sm2 ~/sr/french.sm2.txt new merci &quot;thank you&quot;
+sm2 ~/sr/french.sm2.txt # bonjour
+sm2 ~/sr/french.sm2.txt show # hello
+sm2 ~/sr/french.sm2.txt grade 3.5
+# repeat as many times until nothing shows up.</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SOURCE_CODE"><a class="permalink" href="#SOURCE_CODE">SOURCE
+  CODE</a></h1>
+<p class="Pp"><a class="Lk" href="git://len.falken.directory/code/sm2.git">git://len.falken.directory/code/sm2.git</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
+<p class="Pp">Spaced-repetition is a technique used to strengthen memories based
+    on a &quot;forgetting curve&quot; ideated by Hermann Ebbinghaus.</p>
+<p class="Pp">SuperMemo2 (and all other &quot;SuperMemo algorithms&quot;) is an
+    algorithm and program by Piotr Wozniak which builds on this idea. It was
+    released in 1987 and popularized spaced-repetition.</p>
+<p class="Pp">Before this, the Leitner system (Sebastian Leitner) was used,
+    which is a physical manifestation of spaced-repetition.</p>
+<p class="Pp"><code class="Nm">sm2</code> implements the SuperMemo2 algorithm as
+    it's shown to be effective, simple to implement, and easy to adjust.</p>
+<p class="Pp">An alternative popular open-source program is called Anki.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<p class="Pp"><span class="An">Len Falken</span>
+    (<a class="Mt" href="mailto:len@falken.directory">len@falken.directory</a>)</p>
+<p class="Pp"></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">November 26, 2022</td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+</body>
+</html>
