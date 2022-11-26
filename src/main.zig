@@ -72,7 +72,7 @@ const ResponseQuality = struct {
     const Type = f64;
 
     fn from(r: Type) Type {
-        return math.max(math.min(max, r), min);
+        return @max(@min(max, r), min);
     }
 };
 
@@ -83,7 +83,7 @@ const EFactor = struct {
 
     fn next(ef: Type, q: ResponseQuality.Type) Type {
         const delta = ResponseQuality.max - q;
-        return math.max(ef + (0.1 - delta * (0.08 + delta * 0.02)), minimum);
+        return @max(ef + (0.1 - delta * (0.08 + delta * 0.02)), minimum);
     }
 };
 
@@ -116,7 +116,7 @@ const MemoryUnit = struct {
     }
 
     fn next(self: @This(), q: ResponseQuality.Type) @This() {
-        const has_forgotten = q < math.round(ResponseQuality.max / 2.0);
+        const has_forgotten = q < @round(ResponseQuality.max / 2.0);
         return MemoryUnit{
             .repetition = if (has_forgotten) 0 else self.repetition + 1,
             .ef = EFactor.next(self.ef, q),
