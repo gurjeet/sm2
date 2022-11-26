@@ -233,7 +233,7 @@ pub fn main() !void {
     if (arg1) |file_path| {
         practice_session = try PracticeSession.fromFile(file_path);
     } else {
-        try stdout.writer().print("Usage: sr <filename> [show|grade|until|next|new]\n", .{});
+        try stdout.writer().print("Usage: sr <filename> [new|show|grade|until|next]\n", .{});
         return;
     }
 

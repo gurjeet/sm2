@@ -1,0 +1,102 @@
+.Dd $Mdocdate$
+.Dt SM2 1
+.Sh NAME
+.Nm sm2
+.Nd Invoke the SuperMemo2 spaced-repetition algorithm.
+.Sh SYNOPSIS
+.Nm sm2
+.Ar file
+.Oo
+.Ar new <question> <answer>
+|
+.Ar show
+|
+.Ar grade <0.0-5.0>
+|
+.Ar until
+|
+.Ar next
+.Oc
+.Sh DESCRIPTION
+.Pp
+From a file holding memories, search for the one that is the most stale and display its question.
+.Pp
+.Bd
+Display the memory's answer with the
+.Em show
+command.
+.Ed
+.Pp
+Grade the recall of the memory, from 0.0 being the worst, to 5.0 being very well.
+.Pp
+If there are no memories that are considered stale, nothing is displayed.
+.Pp
+.Bd
+To see when the next one will become stale,
+.Em until
+will display the time in days.
+.Ed
+.Pp
+.Bd
+In order to immediately force a practice, use
+.Em next
+and then
+.Em grade
+as usual.
+.Ed
+.Pp
+It's suggested to create a
+.Qq ~/sr
+directory to hold a collection of topics. A topic's file should be named "<topic>.sr.txt". The "txt" extension is recommended so it's easy to open the file with a text editor to adjust or delete memories.
+.Pp
+.Bd
+When adding a memory, try to make them as small as possible. For example when learning a word in a new language such as French, write the word in French as the question argument, and the word in your native language for the answer argument:
+.Nm
+.Em add
+"bonjour" "hello".
+.Ed
+
+.Sh FILES
+.Pp
+Names of
+.Nm
+files should be
+.Qq <name>.sm2.txt
+so that the operating system can open them by default.
+
+.Pp
+The file format is the following:
+.Bd -literal -offset indent
+timestamp-practiced repetitions-two-digits question answer\\n
+.Ed
+
+for every new memory. All fields are plain text.
+
+The format was designed to be efficient for the program to edit, and modifiable and understandable by a person in a text editor.
+.Sh EXAMPLES
+.Bd -literal -offset indent
+# Typical usage of sm2
+
+mkdir ~/sr/
+touch ~/sr/french.sm2.txt
+sm2 ~/sr/french.sm2.txt bonjour hello
+sm2 ~/sr/french.sm2.txt "au revoir" goodbye
+sm2 ~/sr/french.sm2.txt merci "thank you"
+sm2 ~/sr/french.sm2.txt # bonjour
+sm2 ~/sr/french.sm2.txt show # hello
+sm2 ~/sr/french.sm2.txt grade 3.5
+# repeat as many times until nothing shows up.
+.Ed
+.Sh HISTORY
+.Pp
+Spaced-repetition is a technique used to strengthen memories based on a "forgetting curve" ideated by Hermann Ebbinghaus.
+.Pp
+SuperMemo2 (and all other "SuperMemo algorithms") is an algorithm and program by Piotr Wozniak which builds on this idea. It was released in 1987 and popularized spaced-repetition.
+.Pp
+Before this, the Leitner system (Sebastian Leitner) was used, which is a physical manifestation of spaced-repetition.
+.Pp
+.Nm
+implements the SuperMemo2 algorithm as it's shown to be effective, simple to implement, and easy to adjust.
+.Sh AUTHORS
+.An Len Falken ( Mt len@falken.directory )
+
