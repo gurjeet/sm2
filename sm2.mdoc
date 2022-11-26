@@ -1,5 +1,5 @@
 .Dd $Mdocdate$
-.Dt SM2 1
+.Dt sm2 1
 .Sh NAME
 .Nm sm2
 .Nd Invoke the SuperMemo2 spaced-repetition algorithm.
@@ -27,7 +27,9 @@ Display the memory's answer with the
 command.
 .Ed
 .Pp
-Grade the recall of the memory, from 0.0 being the worst, to 5.0 being very well.
+Score the recall of the memory with
+.Em grade
+, from 0.0 being the worst, to 5.0 being very well.
 .Pp
 If there are no memories that are considered stale, nothing is displayed.
 .Pp
@@ -40,9 +42,7 @@ will display the time in days.
 .Bd
 In order to immediately force a practice, use
 .Em next
-and then
-.Em grade
-as usual.
+and then grade as usual.
 .Ed
 .Pp
 It's suggested to create a
@@ -52,7 +52,7 @@ directory to hold a collection of topics. A topic's file should be named "<topic
 .Bd
 When adding a memory, try to make them as small as possible. For example when learning a word in a new language such as French, write the word in French as the question argument, and the word in your native language for the answer argument:
 .Nm
-.Em add
+.Em new
 "bonjour" "hello".
 .Ed
 
@@ -79,14 +79,17 @@ The format was designed to be efficient for the program to edit, and modifiable 
 
 mkdir ~/sr/
 touch ~/sr/french.sm2.txt
-sm2 ~/sr/french.sm2.txt bonjour hello
-sm2 ~/sr/french.sm2.txt "au revoir" goodbye
-sm2 ~/sr/french.sm2.txt merci "thank you"
+sm2 ~/sr/french.sm2.txt new bonjour hello
+sm2 ~/sr/french.sm2.txt new "au revoir" goodbye
+sm2 ~/sr/french.sm2.txt new merci "thank you"
 sm2 ~/sr/french.sm2.txt # bonjour
 sm2 ~/sr/french.sm2.txt show # hello
 sm2 ~/sr/french.sm2.txt grade 3.5
 # repeat as many times until nothing shows up.
 .Ed
+.Sh SOURCE CODE
+.Pp
+.Lk git://len.falken.directory/code/sm2.git
 .Sh HISTORY
 .Pp
 Spaced-repetition is a technique used to strengthen memories based on a "forgetting curve" ideated by Hermann Ebbinghaus.
@@ -97,6 +100,27 @@ Before this, the Leitner system (Sebastian Leitner) was used, which is a physica
 .Pp
 .Nm
 implements the SuperMemo2 algorithm as it's shown to be effective, simple to implement, and easy to adjust.
+.Pp
+An alternative popular open-source program is called Anki.
+.Sh NOTES
+.Pp
+It will become tiresome quickly to type these commands over and over. Below is a minimal REPL for quick repeated usage. The commands are "s" and "g", the rest are the same.
+.Bd -literal -offset indent
+#!/bin/sh
+while true;
+do
+  read command arg1;
+  case $command in
+    s) sr "$1" show;;
+    g) sr "$1" grade $arg1;;
+    *) sr "$1" $command;;
+  esac
+  case $command in
+    g*) sr "$1" ;;
+    *) ;;
+  esac;
+done
+.Ed
 .Sh AUTHORS
 .An Len Falken ( Mt len@falken.directory )
 

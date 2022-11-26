@@ -111,6 +111,28 @@ sm2 ~/sr/french.sm2.txt grade 3.5
 <p class="Pp">An alternative popular open-source program is called Anki.</p>
 </section>
 <section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<p class="Pp">It will become tiresome quickly to type these commands over and
+    over. Below is a minimal REPL for quick repeated usage. The commands are
+    &quot;s&quot; and &quot;g&quot;, the rest are the same.</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>#!/bin/sh
+while true;
+do
+  read command arg1;
+  case $command in
+    s) sr &quot;$1&quot; show;;
+    g) sr &quot;$1&quot; grade $arg1;;
+    *) sr &quot;$1&quot; $command;;
+  esac
+  case $command in
+    g*) sr &quot;$1&quot; ;;
+    *) ;;
+  esac;
+done</pre>
+</div>
+</section>
+<section class="Sh">
 <h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
 <p class="Pp"><span class="An">Len Falken</span>
     (<a class="Mt" href="mailto:len@falken.directory">len@falken.directory</a>)</p>
