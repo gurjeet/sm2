@@ -180,7 +180,6 @@ const MemoryUnit = struct {
         try file.writer().print(" ", .{});
         try file.writer().print("\"{0s}\" \"{1s}\"\n", .{ self.question, self.answer });
     }
-
 };
 
 const PracticeSession = struct {
@@ -201,7 +200,14 @@ const PracticeSession = struct {
         mu_soonest.last_practice = 9223372036854775807;
 
         while (MemoryUnit.read(self.file, allocator) catch null) |mu_next| {
-            if (mu_next.staleness() < mu_soonest.staleness()) mu_soonest = mu_next;
+            if (mu_next.staleness() < mu_soonest.staleness()) {
+                allocator.free(mu_soonest.question);
+                allocator.free(mu_soonest.answer);
+                mu_soonest = mu_next;
+            } else {
+                allocator.free(mu_next.question);
+                allocator.free(mu_next.answer);
+            }
         }
 
         return mu_soonest;
@@ -220,9 +226,8 @@ const PracticeSession = struct {
 pub fn main() !void {
     const stdout = io.getStdOut();
 
-    var bufferFba: [1024]u8 = undefined;
-    var fba = heap.FixedBufferAllocator.init(&bufferFba);
-    const allocator = fba.allocator();
+    var gpa = heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
 
     var args = try process.argsWithAllocator(allocator);
     _ = args.next();
@@ -251,11 +256,11 @@ pub fn main() !void {
             const question = args.next();
             const answer = args.next();
             if (question == null or answer == null) {
-              try stdout.writer().print("Missing question or answer: sm2 <filename> new \"<question>\" \"<answer>\"\n", .{});
+                try stdout.writer().print("Missing question or answer: sm2 <filename> new \"<question>\" \"<answer>\"\n", .{});
             } else {
-              const q: []const u8 = mem.span(question.?);
-              const a: []const u8 = mem.span(answer.?);
-              try practice_session.newMemoryUnit(q, a);
+                const q: []const u8 = mem.span(question.?);
+                const a: []const u8 = mem.span(answer.?);
+                try practice_session.newMemoryUnit(q, a);
             }
         }
         if (mem.eql(u8, flag, "show"))
