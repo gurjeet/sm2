@@ -121,12 +121,12 @@ while true;
 do
   read command arg1;
   case $command in
-    s) sr &quot;$1&quot; show;;
-    g) sr &quot;$1&quot; grade $arg1;;
-    *) sr &quot;$1&quot; $command;;
-  esac
+    s) sm2 &quot;$1&quot; show;;
+    g) sm2 &quot;$1&quot; grade $arg1;;
+    *) sm2 &quot;$1&quot; $command;;
+  esac;
   case $command in
-    g*) sr &quot;$1&quot; ;;
+    g*) sm2 &quot;$1&quot; ;;
     *) ;;
   esac;
 done</pre>

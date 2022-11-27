@@ -233,7 +233,7 @@ pub fn main() !void {
     if (arg1) |file_path| {
         practice_session = try PracticeSession.fromFile(file_path);
     } else {
-        try stdout.writer().print("Usage: sr <filename> [new|show|grade|until|next]\n", .{});
+        try stdout.writer().print("Usage: sm2 <filename> [new|show|grade|until|next]\n", .{});
         return;
     }
 
@@ -251,7 +251,7 @@ pub fn main() !void {
             const question = args.next();
             const answer = args.next();
             if (question == null or answer == null) {
-              try stdout.writer().print("Missing question or answer: sr add \"<question>\" \"<answer>\"\n", .{});
+              try stdout.writer().print("Missing question or answer: sm2 <filename> new \"<question>\" \"<answer>\"\n", .{});
             } else {
               const q: []const u8 = mem.span(question.?);
               const a: []const u8 = mem.span(answer.?);
